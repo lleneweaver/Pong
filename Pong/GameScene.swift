@@ -8,81 +8,158 @@
 import SpriteKit
 import GameplayKit
 
-class GameScene: SKScene {
+class GameScene: SKScene, SKPhysicsContactDelegate
+{
+    var ball = SKSpriteNode()
+    var paddle = SKSpriteNode()
+    var compPaddle = SKSpriteNode()
+    var bottom = SKSpriteNode()
+    var top = SKSpriteNode()
     
-    private var label : SKLabelNode?
-    private var spinnyNode : SKShapeNode?
-    
-    override func didMove(to view: SKView) {
+    // didMove is similar to viewDidLoad
+    override func didMove(to view: SKView)
+    {
+        ball = childNode(withName: "ball") as! SKSpriteNode
+        paddle = childNode(withName: "paddle") as! SKSpriteNode
+        createComputerPaddle()
+        createTopAndBottom()
         
-        // Get label node from scene and store it for use later
-        self.label = self.childNode(withName: "//helloLabel") as? SKLabelNode
-        if let label = self.label {
-            label.alpha = 0.0
-            label.run(SKAction.fadeIn(withDuration: 2.0))
-        }
+        let borderBody = SKPhysicsBody(edgeLoopFrom: self.frame)
+        borderBody.friction = 0
         
-        // Create shape node to use during mouse interaction
-        let w = (self.size.width + self.size.height) * 0.05
-        self.spinnyNode = SKShapeNode.init(rectOf: CGSize.init(width: w, height: w), cornerRadius: w * 0.3)
+        self.physicsBody = borderBody
+        self.physicsWorld.gravity = CGVector(dx: 0, dy: 9.8)
+        physicsWorld.contactDelegate = self
         
-        if let spinnyNode = self.spinnyNode {
-            spinnyNode.lineWidth = 2.5
-            
-            spinnyNode.run(SKAction.repeatForever(SKAction.rotate(byAngle: CGFloat(Double.pi), duration: 1)))
-            spinnyNode.run(SKAction.sequence([SKAction.wait(forDuration: 0.5),
-                                              SKAction.fadeOut(withDuration: 0.5),
-                                              SKAction.removeFromParent()]))
-        }
+        ball.physicsBody?.categoryBitMask = 1
+        paddle.physicsBody?.categoryBitMask = 2
+        compPaddle.physicsBody?.categoryBitMask = 3
+        top.physicsBody?.categoryBitMask = 4
+        bottom.physicsBody?.categoryBitMask = 5
+        
+        ball.physicsBody?.contactTestBitMask = 2 | 3 | 4 | 5
     }
     
-    
-    func touchDown(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.green
-            self.addChild(n)
+    func didBegin(_ contact: SKPhysicsContact)
+    {
+        let location = contact.contactPoint
+        print(location)
+        
+        if contact.bodyA.categoryBitMask == 1 && contact.bodyB.categoryBitMask == 4
+        {
+            // ball hit the top
+            print("Ball hit top. Player scored!")
         }
-    }
-    
-    func touchMoved(toPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.blue
-            self.addChild(n)
-        }
-    }
-    
-    func touchUp(atPoint pos : CGPoint) {
-        if let n = self.spinnyNode?.copy() as! SKShapeNode? {
-            n.position = pos
-            n.strokeColor = SKColor.red
-            self.addChild(n)
-        }
-    }
-    
-    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
-        if let label = self.label {
-            label.run(SKAction.init(named: "Pulse")!, withKey: "fadeInOut")
+        if contact.bodyA.categoryBitMask == 4 && contact.bodyB.categoryBitMask == 1
+        {
+            // ball hit the top
+            print("Ball hit top. Player scored!")
         }
         
-        for t in touches { self.touchDown(atPoint: t.location(in: self)) }
+        if contact.bodyA.categoryBitMask == 1 && contact.bodyB.categoryBitMask == 5
+        {
+            // ball hit the top
+            print("Ball hit bottom. Computer scored!")
+        }
+        if contact.bodyA.categoryBitMask == 5 && contact.bodyB.categoryBitMask == 1
+        {
+            // ball hit the top
+            print("Ball hit bottom. Computer scored!")
+        }
     }
     
-    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchMoved(toPoint: t.location(in: self)) }
+    func createTopAndBottom()
+    {
+        top = SKSpriteNode(color: UIColor.systemGreen, size: CGSize(width: self.frame.width, height: 10))
+        top.position = CGPoint(x: self.frame.width/2, y: self.frame.height*0.98)
+        addChild(top)
+        top.physicsBody = SKPhysicsBody(rectangleOf: top.frame.size)
+        top.physicsBody?.isDynamic = false
+        
+        bottom = SKSpriteNode(color: UIColor.systemGreen, size: CGSize(width: self.frame.width, height: 10))
+        bottom.position = CGPoint(x: self.frame.width/2, y: self.frame.height*0.02)
+        addChild(bottom)
+        bottom.physicsBody = SKPhysicsBody(rectangleOf: bottom.frame.size)
+        bottom.physicsBody?.isDynamic = false
     }
     
-    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchUp(atPoint: t.location(in: self)) }
+    
+    func createComputerPaddle()
+    {
+        compPaddle = SKSpriteNode(color: UIColor.systemPink, size: CGSize(width: 150, height: 50))
+        compPaddle.position = CGPoint(x: frame.width/2, y: frame.height*0.9)
+        addChild(compPaddle)
+        
+        // add physics
+        compPaddle.physicsBody = SKPhysicsBody(rectangleOf: compPaddle.frame.size)
+        compPaddle.physicsBody?.allowsRotation = false
+        compPaddle.physicsBody?.friction = 0
+        compPaddle.physicsBody?.affectedByGravity = false
+        compPaddle.physicsBody?.isDynamic = false
+        
+        let follow = SKAction.repeatForever(SKAction.sequence([
+            SKAction.run(followBall),
+            SKAction.wait(forDuration: 0.2)
+        ]))
+       
+        run(follow)
     }
     
-    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
-        for t in touches { self.touchUp(atPoint: t.location(in: self)) }
+    func followBall()
+    {
+        let move = SKAction.moveTo(x: ball.position.x, duration: 0.2)
+        compPaddle.run(move)
+    }
+    
+//    override func update(_ currentTime: TimeInterval)
+//    {
+//        compPaddle.position = CGPoint(x: ball.position.x, y: compPaddle.position.y)
+//    }
+    
+    var isTouchingPaddle = false
+    // this method gets called everytime i touch my screen
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?)
+    {
+        let location = touches.first!.location(in: self)
+        if paddle.frame.contains(location)
+        {
+           isTouchingPaddle = true
+        }
+        
+        if isTouchingPaddle == true
+        {
+            paddle.position = CGPoint(x: location.x, y: paddle.position.y)
+        }
+        
+  //      makeNewBall(touchLocation: location)
     }
     
     
-    override func update(_ currentTime: TimeInterval) {
-        // Called before each frame is rendered
+    override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?)
+    {
+        let location = touches.first!.location(in: self)
+        if isTouchingPaddle == true
+        {
+        paddle.position = CGPoint(x: location.x, y: paddle.position.y)
+        }
     }
+    
+    func makeNewBall(touchLocation: CGPoint)
+    {
+        var newBall = SKSpriteNode(imageNamed: "dog")
+        newBall.size = CGSize(width: 100, height: 100)
+        newBall.position = touchLocation
+        
+        addChild(newBall)
+        
+        // give the object physics
+        newBall.physicsBody = SKPhysicsBody(circleOfRadius: 50)
+        
+        newBall.physicsBody?.restitution = 1
+        newBall.physicsBody?.allowsRotation = false
+        newBall.physicsBody?.affectedByGravity = false
+        newBall.physicsBody?.applyImpulse(CGVector(dx: 500, dy: 500))
+        
+    }
+    
 }
